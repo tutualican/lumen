@@ -1,7 +1,12 @@
 # Lumen
 
+[![Release](https://img.shields.io/github/v/release/tutualican/lumen)](https://github.com/tutualican/lumen/releases/latest)
+
 Galeriden **seçilen** fotoğraf veya videoya GPU üzerinde renk filtresi uygulayan Android
 uygulaması. Kamera kullanmaz; yalnızca Android Photo Picker ile seçim yapar.
+
+**APK indir:** [Lumen 1.0.0](https://github.com/tutualican/lumen/releases/download/v1.0.0/Lumen-1.0.0.apk)
+(Android 10+, imzalı release)
 
 Filtre kataloğu `kapsamlı_kamera_filtreleri_ve_estetik_rehberi.md` dosyasındaki
 26 stilin tamamını kapsar.
@@ -91,7 +96,18 @@ $env:JAVA_HOME="C:\Program Files\Java\jdk-21.0.12"
 .\gradlew.bat :app:testDebugUnitTest
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`
+İmzalı release için proje köküne `keystore.properties` koyun (git'e girmez):
+
+```properties
+storeFile=C\:\\path\\to\\lumen-release.jks
+storePassword=***
+keyAlias=lumen
+keyPassword=***
+```
+
+Dosya yoksa da derleme çalışır; release APK imzasız üretilir.
+
+APK: `app/build/outputs/apk/release/app-release.apk`
 
 - minSdk 29, targetSdk 36, compileSdk 36
 - Kotlin 2.3.21, AGP 8.13.1, Compose Material3
