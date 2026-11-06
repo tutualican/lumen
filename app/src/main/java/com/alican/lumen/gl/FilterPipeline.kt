@@ -47,6 +47,27 @@ class FilterPipeline {
         stampDirty = true
     }
 
+    /**
+     * Forgets every GL name without deleting it. Must be called when the EGL
+     * context was lost (surface recreated): the old ids are meaningless in the
+     * new context and deleting them could destroy unrelated objects.
+     */
+    fun invalidateGl() {
+        grade2d = 0
+        gradeOes = 0
+        bright = 0
+        blur = 0
+        composite = 0
+        vao = 0
+        gradeFbo = null
+        bloomA = null
+        bloomB = null
+        halA = null
+        halB = null
+        stampTexture = 0
+        stampDirty = true
+    }
+
     fun ensurePrograms() {
         if (grade2d != 0) return
         grade2d = GlUtil.program(Shaders.VERTEX, Shaders.gradeShader(false))
@@ -336,6 +357,15 @@ class FilterPipeline {
 
     companion object {
         fun uploadTexture(bitmap: Bitmap, reuse: Int = 0): Int {
+            // GLUtils only understands 8888/565 data; HDR or F16 decodes must be
+            // converted first or the upload throws.
+            val source = if (
+                bitmap.config == Bitmap.Config.ARGB_8888 || bitmap.config == Bitmap.Config.RGB_565
+            ) {
+                bitmap
+            } else {
+                bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: bitmap
+            }
             val ids = IntArray(1)
             if (reuse == 0) {
                 GLES30.glGenTextures(1, ids, 0)
@@ -347,8 +377,9 @@ class FilterPipeline {
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
-            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0)
+            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, source, 0)
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+            if (source !== bitmap) source.recycle()
             return ids[0]
         }
 

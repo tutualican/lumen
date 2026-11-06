@@ -83,6 +83,7 @@ fun EditorScreen(
     var previewAspect by remember { mutableFloatStateOf(1f) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
     var stamp by remember { mutableStateOf<Bitmap?>(null) }
+    var glError by remember { mutableStateOf<String?>(null) }
 
     val preset = FilterCatalog.byId(state.presetId)
     val params: FilterParams = remember(state.presetId, state.intensity) {
@@ -91,7 +92,9 @@ fun EditorScreen(
 
     // Date stamp texture is created once; only presets that ask for it use it.
     LaunchedEffect(Unit) {
-        stamp = withContext(Dispatchers.Default) { StampFactory.create() }
+        val created = withContext(Dispatchers.Default) { StampFactory.create() }
+        stamp = created
+        previewView?.setStamp(created)
     }
 
     DisposableEffect(uri) {
@@ -108,6 +111,8 @@ fun EditorScreen(
                 factory = { ctx ->
                     FilteredPreviewView(ctx).also { view ->
                         previewView = view
+                        view.onRenderError = { message -> glError = message }
+                        stamp?.let { view.setStamp(it) }
                         if (kind == MediaKind.PHOTO) {
                             scope.launch {
                                 val bmp = withContext(Dispatchers.IO) { loadPreviewBitmap(context, uri) }
@@ -144,6 +149,7 @@ fun EditorScreen(
                 update = { view ->
                     view.params = params
                     view.background = null
+                    stamp?.let { view.setStamp(it) }
                 },
             )
 
@@ -205,6 +211,21 @@ fun EditorScreen(
                         modifier = Modifier.width(220.dp),
                     )
                 }
+            }
+        }
+
+        glError?.let { msg ->
+            Surface(
+                color = Color(0xFF3A1214),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
+            ) {
+                Text(
+                    "Önizleme hatası: $msg",
+                    color = Color(0xFFFFCDD2),
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
             }
         }
 
@@ -353,6 +374,9 @@ private fun loadPreviewBitmap(context: android.content.Context, uri: Uri): Bitma
         val source = android.graphics.ImageDecoder.createSource(context.contentResolver, uri)
         android.graphics.ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
             decoder.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+            // Force 8-bit sRGB: HDR sources decode to F16, which cannot be
+            // uploaded with GLUtils and would also look wrong in the preview.
+            decoder.setTargetColorSpace(android.graphics.ColorSpace.get(android.graphics.ColorSpace.Named.SRGB))
             val longest = maxOf(info.size.width, info.size.height)
             var sample = 1
             while (longest / sample > 2000) sample *= 2

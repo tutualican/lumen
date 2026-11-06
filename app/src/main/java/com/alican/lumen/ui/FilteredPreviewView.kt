@@ -30,6 +30,10 @@ class FilteredPreviewView(context: Context) : GLSurfaceView(context) {
     /** Longest edge of the preview bitmap; export always uses the full original. */
     private val previewMaxEdge = 1440
 
+    /** Receives render failures so the UI can show them instead of crashing. */
+    @Volatile
+    var onRenderError: ((String) -> Unit)? = null
+
     init {
         setEGLContextClientVersion(3)
         setEGLConfigChooser(8, 8, 8, 8, 16, 0)
@@ -80,6 +84,21 @@ class FilteredPreviewView(context: Context) : GLSurfaceView(context) {
         textureCallbacks.clear()
     }
 
+    /** Supplies the retro date-stamp overlay; ignored by presets without one. */
+    fun setStamp(bitmap: Bitmap?) {
+        queueEvent { FilterPipelineHolder.pipeline.setStampBitmap(bitmap) }
+    }
+
+    private var renderErrorReported = false
+
+    private fun reportRenderError(t: Throwable) {
+        android.util.Log.e("Lumen", "Render failed", t)
+        if (renderErrorReported) return
+        renderErrorReported = true
+        val message = "${t.javaClass.simpleName}: ${t.message}"
+        post { onRenderError?.invoke(message) }
+    }
+
     private inner class PreviewRenderer : Renderer {
         @Volatile var mode: Mode = Mode.PHOTO
         @Volatile var pendingBitmap: Bitmap? = null
@@ -92,7 +111,14 @@ class FilteredPreviewView(context: Context) : GLSurfaceView(context) {
         private var frameTimeNanos = 0L
 
         override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-            FilterPipelineHolder.pipeline.ensurePrograms()
+            try {
+                // A new EGL context means every cached GL name is stale.
+                FilterPipelineHolder.pipeline.invalidateGl()
+                FilterPipelineHolder.pipeline.ensurePrograms()
+            } catch (t: Throwable) {
+                reportRenderError(t)
+                return
+            }
 
             val ids = IntArray(1)
             GLES30.glGenTextures(1, ids, 0)
@@ -120,6 +146,14 @@ class FilteredPreviewView(context: Context) : GLSurfaceView(context) {
         }
 
         override fun onDrawFrame(gl: GL10?) {
+            try {
+                drawFrame()
+            } catch (t: Throwable) {
+                reportRenderError(t)
+            }
+        }
+
+        private fun drawFrame() {
             if (mode == Mode.VIDEO) {
                 surfaceTexture?.let { st ->
                     try {
@@ -158,6 +192,7 @@ class FilteredPreviewView(context: Context) : GLSurfaceView(context) {
             }
             val x = (viewW - drawW) / 2
             val y = (viewH - drawH) / 2
+            if (drawW <= 0 || drawH <= 0) return
 
             FilterPipelineHolder.pipeline.render(
                 srcTexture = src,
