@@ -5,7 +5,7 @@
 Galeriden **seçilen** fotoğraf veya videoya GPU üzerinde renk filtresi uygulayan Android
 uygulaması. Kamera kullanmaz; yalnızca Android Photo Picker ile seçim yapar.
 
-**APK indir:** [Lumen 1.0.0](https://github.com/tutualican/lumen/releases/download/v1.0.0/Lumen-1.0.0.apk)
+**APK indir:** [Lumen 1.0.1](https://github.com/tutualican/lumen/releases/download/v1.0.1/Lumen-1.0.1.apk)
 (Android 10+, imzalı release)
 
 Filtre kataloğu `kapsamlı_kamera_filtreleri_ve_estetik_rehberi.md` dosyasındaki
